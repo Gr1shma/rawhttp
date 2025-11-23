@@ -2,7 +2,7 @@ use std::str;
 
 use thiserror::Error;
 
-use crate::http::body::{Body, BodyParseError};
+use crate::http::body::{Body, BodyError};
 use crate::http::header::Headers;
 
 use super::header::HeaderError;
@@ -20,7 +20,7 @@ enum ParserState {
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("Invalid request line: {0}")]
-    RequestLineError(#[from] RequestLineError),
+    RequestLine(#[from] RequestLineError),
 
     #[error("Invalid UTF-8 encoding in request")]
     InvalidEncoding(#[from] std::str::Utf8Error),
@@ -32,10 +32,10 @@ pub enum ParseError {
     IoError(#[from] std::io::Error),
 
     #[error("Invalid header")]
-    InvalidHeader(#[from] HeaderError),
+    Header(#[from] HeaderError),
 
     #[error("Body error: {0}")]
-    Body(#[from] BodyParseError),
+    Body(#[from] BodyError),
 }
 
 pub struct Request {
@@ -113,9 +113,9 @@ impl Request {
 
     fn parse_body(&mut self, body_bytes: &[u8]) -> Result<(), ParseError> {
         if let Some(content_length_str) = self.header("Content-Length") {
-            let content_length = content_length_str.parse::<usize>().map_err(|_| {
-                BodyParseError::InvalidContentLength(content_length_str.to_string())
-            })?;
+            let content_length = content_length_str
+                .parse::<usize>()
+                .map_err(|_| BodyError::InvalidContentLength(content_length_str.to_string()))?;
 
             self.body = Body::from_content_length(body_bytes, content_length)?;
         } else {
@@ -245,7 +245,7 @@ mod tests {
         let result = Request::try_from(raw.as_bytes());
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(ParseError::RequestLineError(_))));
+        assert!(matches!(result, Err(ParseError::RequestLine(_))));
     }
 
     #[test]
@@ -253,6 +253,6 @@ mod tests {
         let raw = "GET /path HTTPS/2.0";
         let result = Request::try_from(raw.as_bytes());
 
-        assert!(matches!(result, Err(ParseError::RequestLineError(_))));
+        assert!(matches!(result, Err(ParseError::RequestLine(_))));
     }
 }

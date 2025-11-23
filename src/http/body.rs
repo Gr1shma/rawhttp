@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum BodyParseError {
+pub enum BodyError {
     #[error("Invalid content length: {0}")]
     InvalidContentLength(String),
 
@@ -23,13 +23,13 @@ impl Body {
         Body::Empty
     }
 
-    pub fn from_content_length(buf: &[u8], length: usize) -> Result<Self, BodyParseError> {
+    pub fn from_content_length(buf: &[u8], length: usize) -> Result<Self, BodyError> {
         if length == 0 {
             return Ok(Body::Empty);
         }
 
         if buf.len() < length {
-            return Err(BodyParseError::UnexpectedEof {
+            return Err(BodyError::UnexpectedEof {
                 expected: length,
                 actual: buf.len(),
             });
@@ -98,7 +98,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(BodyParseError::UnexpectedEof {
+            Err(BodyError::UnexpectedEof {
                 expected: 10,
                 actual: 5
             })

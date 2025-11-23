@@ -2,11 +2,6 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 
-#[derive(Debug, Clone)]
-pub struct Headers {
-    headers: HashMap<String, String>,
-}
-
 #[derive(Debug, Error)]
 pub enum HeaderError {
     #[error("Invalid head format: missing colon separator")]
@@ -23,6 +18,11 @@ pub enum HeaderError {
 
     #[error("Invalid header value: contains invalid characters")]
     InvalidHeaderValue,
+}
+
+#[derive(Debug, Clone)]
+pub struct Headers {
+    headers: HashMap<String, String>,
 }
 
 impl Headers {
