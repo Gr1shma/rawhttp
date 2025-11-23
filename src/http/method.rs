@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::http::request::ParseError;
+use super::request_line::RequestLineError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Method {
@@ -16,7 +16,7 @@ pub enum Method {
 }
 
 impl FromStr for Method {
-    type Err = ParseError;
+    type Err = RequestLineError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -29,7 +29,7 @@ impl FromStr for Method {
             "OPTIONS" => Ok(Self::OPTIONS),
             "TRACE" => Ok(Self::TRACE),
             "PATCH" => Ok(Self::PATCH),
-            _ => Err(ParseError::InvalidMethod(s.to_string())),
+            _ => Err(RequestLineError::InvalidMethod(s.to_string())),
         }
     }
 }
