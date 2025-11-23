@@ -2,6 +2,7 @@ use std::str;
 
 use thiserror::Error;
 
+use crate::http::body::{Body, BodyParseError};
 use crate::http::header::Headers;
 
 use super::header::HeaderError;
@@ -12,6 +13,7 @@ use super::request_line::{RequestLine, RequestLineError};
 enum ParserState {
     StateInit,
     StateHeaders,
+    StateBody,
     StateDone,
 }
 
@@ -31,12 +33,16 @@ pub enum ParseError {
 
     #[error("Invalid header")]
     InvalidHeader(#[from] HeaderError),
+
+    #[error("Body error: {0}")]
+    Body(#[from] BodyParseError),
 }
 
 pub struct Request {
     state: ParserState,
     requestline: Option<RequestLine>,
     headers: Headers,
+    body: Body,
 }
 
 impl Request {
@@ -45,11 +51,18 @@ impl Request {
             state: ParserState::StateInit,
             requestline: None,
             headers: Headers::new(),
+            body: Body::Empty,
         }
     }
 
     pub fn parse(&mut self, data: &str) -> Result<(), ParseError> {
-        let lines: Vec<&str> = data.lines().collect();
+        let (header_section, body_section) = if let Some(pos) = data.find("\r\n\r\n") {
+            (&data[..pos], &data[pos + 4..])
+        } else {
+            (data, "")
+        };
+
+        let lines: Vec<&str> = header_section.lines().collect();
         if lines.is_empty() {
             return Err(ParseError::IncompleteRequest);
         }
@@ -63,10 +76,28 @@ impl Request {
                     self.parse_headers(&lines[1..])?;
                 }
 
+                self.state = ParserState::StateBody;
+
+                if !body_section.is_empty() {
+                    self.parse_body(body_section.as_bytes())?;
+                } else {
+                    if let Some(content_length) = self.header("Content-Length") {
+                        if content_length != "0" {
+                            return Err(ParseError::IncompleteRequest);
+                        }
+                    }
+                }
+                self.state = ParserState::StateDone;
+
                 Ok(())
             }
             ParserState::StateHeaders => {
                 self.parse_headers(&lines)?;
+                self.state = ParserState::StateBody;
+                Ok(())
+            }
+            ParserState::StateBody => {
+                self.parse_body(body_section.as_bytes())?;
                 self.state = ParserState::StateDone;
                 Ok(())
             }
@@ -77,6 +108,24 @@ impl Request {
     fn parse_headers(&mut self, lines: &[&str]) -> Result<(), ParseError> {
         let header_text = lines.join("\r\n");
         self.headers.parse_headers(&header_text)?;
+        Ok(())
+    }
+
+    fn parse_body(&mut self, body_bytes: &[u8]) -> Result<(), ParseError> {
+        if let Some(content_length_str) = self.header("Content-Length") {
+            let content_length = content_length_str.parse::<usize>().map_err(|_| {
+                BodyParseError::InvalidContentLength(content_length_str.to_string())
+            })?;
+
+            self.body = Body::from_content_length(body_bytes, content_length)?;
+        } else {
+            if body_bytes.is_empty() {
+                self.body = Body::Empty;
+            } else {
+                self.body = Body::Empty;
+            }
+        }
+
         Ok(())
     }
 
@@ -94,6 +143,18 @@ impl Request {
 
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers.get(name)
+    }
+
+    pub fn body(&self) -> &Body {
+        &self.body
+    }
+
+    pub fn body_as_bytes(&self) -> &[u8] {
+        self.body.as_bytes()
+    }
+
+    pub fn body_as_str(&self) -> Result<&str, std::str::Utf8Error> {
+        self.body.as_str()
     }
 }
 
@@ -141,6 +202,31 @@ mod tests {
         assert_eq!(request.header("Host"), Some("example.com"));
         assert_eq!(request.header("User-Agent"), Some("test"));
         assert_eq!(request.headers.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_post_request_with_body() {
+        let raw = "POST /api/users HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: 11\r\n\r\nhello world";
+
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        assert_eq!(request.method(), Some(&Method::POST));
+        assert_eq!(request.target(), Some("/api/users"));
+        assert_eq!(request.header("Content-Type"), Some("application/json"));
+        assert_eq!(request.header("Content-Length"), Some("11"));
+        assert_eq!(request.body_as_str().unwrap(), "hello world");
+        assert_eq!(request.body().len(), 11);
+        assert!(!request.body().is_empty());
+    }
+
+    #[test]
+    fn test_parse_post_request_without_body() {
+        let raw = "POST /api/users HTTP/1.1\r\n\r\n";
+
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        assert_eq!(request.method(), Some(&Method::POST));
+        assert!(request.body().is_empty());
     }
 
     #[test]
