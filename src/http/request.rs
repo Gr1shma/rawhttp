@@ -76,7 +76,6 @@ impl Request {
         let httpversion = parts[2].to_string();
 
         let http_parts: Vec<&str> = httpversion.split("/").collect();
-        dbg!(&http_parts, &httpversion);
         if http_parts.len() != 2 || http_parts[0] != "HTTP" || http_parts[1] != "1.1" {
             return Err(ParseError::InvalidProtocol(httpversion.to_string()));
         }
@@ -103,21 +102,23 @@ impl Request {
     }
 }
 
-pub fn request_from_bytes(data: &[u8]) -> Result<Request, ParseError> {
-    let data_str = str::from_utf8(data)?;
-    let mut request = Request::new();
-    request.parse(data_str)?;
-    Ok(request)
+impl TryFrom<&[u8]> for Request {
+    type Error = ParseError;
+    fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+        let data_str = str::from_utf8(data)?;
+        let mut request = Request::new();
+        request.parse(data_str)?;
+        Ok(request)
+    }
 }
 
 pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, ParseError> {
-    let mut buf = vec![0; 1024];
+    const BUFFER_SIZE: usize = 8192;
+    let mut buf = vec![0; BUFFER_SIZE];
 
-    let bytes_read = reader.read(&mut buf).map_err(|e| ParseError::IoError(e))?;
+    let bytes_read = reader.read(&mut buf)?;
 
-    buf.truncate(bytes_read);
-
-    request_from_bytes(&buf)
+    Request::try_from(&buf[..bytes_read])
 }
 
 #[cfg(test)]
@@ -128,7 +129,7 @@ mod tests {
     fn test_parse_get_request() {
         let raw = "GET /index.html HTTP/1.1";
 
-        let request = request_from_bytes(raw.as_bytes()).unwrap();
+        let request = Request::try_from(raw.as_bytes()).unwrap();
 
         assert_eq!(request.method(), Some(&Method::GET));
         assert_eq!(request.target(), Some("/index.html"));
@@ -138,7 +139,7 @@ mod tests {
     fn test_parse_post_request() {
         let raw = "POST /api/users HTTP/1.1";
 
-        let request = request_from_bytes(raw.as_bytes()).unwrap();
+        let request = Request::try_from(raw.as_bytes()).unwrap();
 
         assert_eq!(request.method(), Some(&Method::POST));
         assert_eq!(request.target(), Some("/api/users"));
@@ -147,7 +148,7 @@ mod tests {
     #[test]
     fn test_invalid_method() {
         let raw = "INVALID /path HTTP/1.1";
-        let result = request_from_bytes(raw.as_bytes());
+        let result = Request::try_from(raw.as_bytes());
 
         assert!(result.is_err());
         assert!(matches!(result, Err(ParseError::InvalidMethod(_))));
@@ -156,7 +157,7 @@ mod tests {
     #[test]
     fn test_invalid_protocol() {
         let raw = "GET /path HTTPS/2.0";
-        let result = request_from_bytes(raw.as_bytes());
+        let result = Request::try_from(raw.as_bytes());
 
         assert!(matches!(result, Err(ParseError::InvalidProtocol(_))));
     }

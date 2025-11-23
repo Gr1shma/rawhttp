@@ -1,9 +1,8 @@
-use std::{
-    io::Read,
-    net::{TcpListener, TcpStream},
-};
+use std::net::{TcpListener, TcpStream};
 
 use anyhow::{Context, Result};
+
+use crate::http::request::request_from_reader;
 
 pub struct Server {
     addr: String,
@@ -35,19 +34,10 @@ impl Server {
 }
 
 fn handle_connection(stream: &mut TcpStream) -> Result<()> {
-    let mut buf = vec![0; 1024];
-    let bytes_read = stream
-        .read(&mut buf)
-        .context("Failed to read form stream")?;
+    let request = request_from_reader(stream)?;
 
-    buf.truncate(bytes_read);
-
-    println!("Received {} bytes:", bytes_read);
-    println!("{:?}", buf);
-
-    if let Ok(request_str) = std::str::from_utf8(&buf) {
-        println!("\nAs string:\n{}", request_str);
-    }
+    println!("{:?}", request.method());
+    println!("{:?}", request.target());
 
     Ok(())
 }
