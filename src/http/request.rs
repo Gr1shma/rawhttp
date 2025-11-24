@@ -40,9 +40,9 @@ pub enum ParseError {
 
 pub struct Request {
     state: ParserState,
-    requestline: Option<RequestLine>,
-    headers: Headers,
-    body: Body,
+    pub requestline: Option<RequestLine>,
+    pub headers: Headers,
+    pub body: Body,
 }
 
 impl Request {

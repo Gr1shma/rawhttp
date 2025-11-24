@@ -22,7 +22,7 @@ pub enum HeaderError {
 
 #[derive(Debug, Clone)]
 pub struct Headers {
-    headers: HashMap<String, String>,
+    pub headers: HashMap<String, String>,
 }
 
 impl Headers {
