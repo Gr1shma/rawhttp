@@ -68,6 +68,18 @@ impl Default for Body {
     }
 }
 
+impl From<String> for Body {
+    fn from(s: String) -> Self {
+        Body::Content(s.into_bytes())
+    }
+}
+
+impl From<&str> for Body {
+    fn from(s: &str) -> Self {
+        Body::Content(s.as_bytes().to_vec())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

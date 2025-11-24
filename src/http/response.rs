@@ -97,7 +97,7 @@ impl Response {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut response = Vec::new();
 
-        let status_line = format!("HTTPS/1.1 {}\r\n", self.status_code());
+        let status_line = format!("HTTP/1.1 {}\r\n", self.status_code());
         response.extend_from_slice(status_line.as_bytes());
 
         for (name, value) in self.headers.iter() {
@@ -110,6 +110,12 @@ impl Response {
         response.extend_from_slice(self.body.as_bytes());
 
         return response;
+    }
+
+    pub fn send(&self, stream: &mut impl std::io::Write) -> std::io::Result<()> {
+        stream.write_all(&self.to_bytes())?;
+        stream.flush()?;
+        Ok(())
     }
 }
 
