@@ -76,11 +76,9 @@ fn handle_connection(mut stream: TcpStream, handler: Arc<dyn Handler>) -> Result
         Ok(request) => {
             println!(
                 "{:?} {} HTTP/{}",
-                request
-                    .method()
-                    .unwrap_or(&crate::http::method::Method::GET),
-                request.target().unwrap_or("/"),
-                request.http_version().unwrap_or("1.1")
+                request.method(),
+                request.target(),
+                request.http_version()
             );
             handler.handle(&request)
         }

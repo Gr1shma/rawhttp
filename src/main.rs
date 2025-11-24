@@ -7,9 +7,9 @@ struct WebsiteHandler;
 impl Handler for WebsiteHandler {
     fn handle(&self, request: &Request) -> Response {
         match request.method() {
-            Some(Method::GET) => match request.target() {
-                Some("/check") => Response::ok().with_body(Body::from("Server is running".to_string())),
-                Some("/hi") => Response::ok().with_body(Body::from("Hello World".to_string())),
+            Method::GET => match request.target() {
+                "/check" => Response::ok().with_body(Body::from("Server is running".to_string())),
+                "/hi" => Response::ok().with_body(Body::from("Hello World".to_string())),
                 _ => Response::new(StatusCode::BadRequest),
             },
             _ => Response::new(StatusCode::BadRequest),
