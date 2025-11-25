@@ -135,11 +135,11 @@ impl TryFrom<&[u8]> for Request {
 pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, ParseError> {
     let mut reader = BufReader::new(reader);
     let mut headers_buf = Vec::new();
-    let mut content_length = 0;
 
     loop {
         let mut line = String::new();
         let bytes_read = reader.read_line(&mut line)?;
+
         if bytes_read == 0 {
             break; // EOF
         }
@@ -149,21 +149,20 @@ pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, 
         }
 
         headers_buf.extend_from_slice(line.as_bytes());
-
-        if line.to_lowercase().starts_with("content-length:") {
-            if let Some(value) = line.split(':').nth(1) {
-                if let Ok(len) = value.trim().parse::<usize>() {
-                    content_length = len;
-                }
-            }
-        }
     }
-
-    let mut body_buf = vec![0; content_length];
-    reader.read_exact(&mut body_buf)?;
 
     let headers_str =
         String::from_utf8(headers_buf).map_err(|e| ParseError::InvalidEncoding(e.utf8_error()))?;
+
+    let content_length = headers_str
+        .lines()
+        .find(|line| line.to_lowercase().starts_with("content-length:"))
+        .and_then(|line| line.split(':').nth(1))
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let mut body_buf = vec![0; content_length];
+    reader.read_exact(&mut body_buf)?;
 
     Request::from_parts(&headers_str, body_buf)
 }
