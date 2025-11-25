@@ -3,18 +3,16 @@ use std::str;
 
 use thiserror::Error;
 
-use crate::http::body::{Body, BodyError};
-use crate::http::header::Headers;
-
-use super::header::HeaderError;
-use super::method::Method;
-use super::request_line::{RequestLine, RequestLineError};
+use super::{
+    Query, QueryError,
+    body::{Body, BodyError},
+    header::{HeaderError, Headers},
+    method::Method,
+    request_line::{RequestLine, RequestLineError},
+};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
-    #[error("Invalid request line: {0}")]
-    RequestLine(#[from] RequestLineError),
-
     #[error("Invalid UTF-8 encoding in request")]
     InvalidEncoding(#[from] std::str::Utf8Error),
 
@@ -23,6 +21,12 @@ pub enum ParseError {
 
     #[error("IO error while reading request")]
     IoError(#[from] std::io::Error),
+
+    #[error("Invalid request line: {0}")]
+    RequestLine(#[from] RequestLineError),
+
+    #[error("Invalid query")]
+    Query(#[from] QueryError),
 
     #[error("Invalid header")]
     Header(#[from] HeaderError),
@@ -35,6 +39,7 @@ pub struct Request {
     pub requestline: RequestLine,
     pub headers: Headers,
     pub body: Body,
+    pub query: Query,
 }
 
 impl Request {
@@ -48,6 +53,14 @@ impl Request {
 
     pub fn http_version(&self) -> &str {
         self.requestline.httpversion.as_str()
+    }
+
+    pub fn query(&self) -> &Query {
+        &self.query
+    }
+
+    pub fn path(&self) -> &str {
+        self.target().split('?').next().unwrap_or("")
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {
@@ -73,6 +86,9 @@ impl Request {
         }
 
         let requestline = RequestLine::parse(lines[0])?;
+
+        let query = Query::from_url(&requestline.target)?;
+
         let mut headers = Headers::new();
 
         if lines.len() > 1 {
@@ -96,6 +112,7 @@ impl Request {
             requestline,
             headers,
             body,
+            query,
         })
     }
 }
@@ -176,6 +193,16 @@ mod tests {
         assert_eq!(request.header("Host"), Some("example.com"));
         assert_eq!(request.header("User-Agent"), Some("test"));
         assert_eq!(request.headers.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_request_with_query() {
+        let raw = "GET /hello?key=caf%C3%A9 HTTP/1.1";
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        assert_eq!(request.method(), &Method::GET);
+        assert_eq!(request.target(), "/hello?key=caf%C3%A9");
+        assert_eq!(request.query.get("key"), Some("café"));
     }
 
     #[test]

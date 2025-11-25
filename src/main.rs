@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rawhttp::http::{body::Body, method::Method, Request, Response, StatusCode};
+use rawhttp::http::{Request, Response, StatusCode, body::Body, method::Method};
 use rawhttp::server::{Handler, Server};
 
 struct WebsiteHandler;
@@ -7,9 +7,17 @@ struct WebsiteHandler;
 impl Handler for WebsiteHandler {
     fn handle(&self, request: &Request) -> Response {
         match request.method() {
-            Method::GET => match request.target() {
+            Method::GET => match request.path() {
                 "/check" => Response::ok().with_body(Body::from("Server is running".to_string())),
                 "/hi" => Response::ok().with_body(Body::from("Hello World".to_string())),
+                "/smile" => {
+                    let message = request.query().get("message").unwrap_or("");
+                    if message.is_empty() {
+                        Response::ok().with_body(Body::from("Smiling".to_string()))
+                    } else {
+                        Response::ok().with_body(Body::from(format!("Smiling with {}", message)))
+                    }
+                }
                 _ => Response::new(StatusCode::BadRequest),
             },
             _ => Response::new(StatusCode::BadRequest),
