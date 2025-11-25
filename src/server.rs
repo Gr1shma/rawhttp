@@ -10,9 +10,8 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::http::{
-    Request,
+    Request, Response, StatusCode,
     request::{ParseError, request_from_reader},
-    response::{Response, StatusCode},
 };
 
 pub trait Handler: Send + Sync {

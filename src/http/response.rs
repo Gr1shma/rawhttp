@@ -1,33 +1,4 @@
-use std::fmt::Display;
-
-use crate::http::{Headers, body::Body};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StatusCode {
-    Ok = 200,
-    BadRequest = 400,
-    InternalServerError = 500,
-}
-
-impl StatusCode {
-    pub fn reason_parse(&self) -> &'static str {
-        match self {
-            StatusCode::Ok => "OK",
-            StatusCode::BadRequest => "Bad Request",
-            StatusCode::InternalServerError => "Internal Server Error",
-        }
-    }
-
-    pub fn as_u16(&self) -> u16 {
-        *self as u16
-    }
-}
-
-impl Display for StatusCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.as_u16(), self.reason_parse())
-    }
-}
+use super::{Headers, body::Body, status_code::StatusCode};
 
 #[derive(Debug)]
 pub struct Response {
@@ -51,12 +22,44 @@ impl Response {
         Self::new(StatusCode::Ok)
     }
 
+    pub fn created() -> Self {
+        Self::new(StatusCode::Created)
+    }
+
+    pub fn no_content() -> Self {
+        Self::new(StatusCode::NoContent)
+    }
+
     pub fn bad_request() -> Self {
         Self::new(StatusCode::BadRequest)
     }
 
+    pub fn unauthorized() -> Self {
+        Self::new(StatusCode::Unauthorized)
+    }
+
+    pub fn forbidden() -> Self {
+        Self::new(StatusCode::Forbidden)
+    }
+
+    pub fn not_found() -> Self {
+        Self::new(StatusCode::NotFound)
+    }
+
+    pub fn method_not_allowed() -> Self {
+        Self::new(StatusCode::MethodNotAllowed)
+    }
+
+    pub fn conflict() -> Self {
+        Self::new(StatusCode::Conflict)
+    }
+
     pub fn internal_server_error() -> Self {
         Self::new(StatusCode::InternalServerError)
+    }
+
+    pub fn service_unavailable() -> Self {
+        Self::new(StatusCode::ServiceUnavailable)
     }
 
     pub fn with_body(mut self, body: Body) -> Self {
