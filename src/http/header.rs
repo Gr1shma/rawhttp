@@ -32,8 +32,18 @@ impl Headers {
         }
     }
 
-    pub fn insert(&mut self, name: String, value: String) {
-        self.headers.insert(name.to_lowercase(), value);
+    pub fn insert(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        let name = name.into();
+        let value = value.into();
+        let key = name.to_lowercase();
+
+        self.headers
+            .entry(key)
+            .and_modify(|existing| {
+                existing.push_str(",");
+                existing.push_str(&value);
+            })
+            .or_insert(value);
     }
 
     pub fn get(&self, name: &str) -> Option<&str> {
@@ -196,5 +206,14 @@ mod tests {
         let line = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
         let result = Headers::parse_header_line(line);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_insert_duplicate_headers() {
+        let mut headers = Headers::new();
+        headers.insert("Set-Cookie".to_string(), "session=abc".to_string());
+        headers.insert("Set-Cookie".to_string(), "user=john".to_string());
+
+        assert_eq!(headers.get("Set-Cookie"), Some("session=abc,user=john"));
     }
 }
