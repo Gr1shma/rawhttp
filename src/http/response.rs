@@ -112,7 +112,7 @@ impl Response {
 
         response.extend_from_slice(self.body.as_bytes());
 
-        return response;
+        response
     }
 
     pub fn send(&self, stream: &mut impl std::io::Write) -> std::io::Result<()> {

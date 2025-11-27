@@ -45,7 +45,7 @@ impl Query {
             let key = Self::decode_url(key)?;
             let value = Self::decode_url(value)?;
 
-            query.params.entry(key).or_insert_with(Vec::new).push(value);
+            query.params.entry(key).or_default().push(value);
         }
 
         Ok(query)

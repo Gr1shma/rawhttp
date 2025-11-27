@@ -40,7 +40,7 @@ impl Headers {
         self.headers
             .entry(key)
             .and_modify(|existing| {
-                existing.push_str(",");
+                existing.push(',');
                 existing.push_str(&value);
             })
             .or_insert(value);
