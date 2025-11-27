@@ -2,6 +2,10 @@
 name = "rawhttp"
 version = "0.1.0"
 edition = "2024"
+description = "A simple, lightweight HTTP server implementation in Rust."
+license = "MIT"
+keywords = ["http", "server", "tcp", "learning"]
+categories = ["network-programming", "web-programming::http-server"]
 
 [dependencies]
 anyhow = "1.0.100"
