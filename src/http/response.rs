@@ -19,7 +19,7 @@ impl Response {
     }
 
     pub fn ok() -> Self {
-        Self::new(StatusCode::Ok)
+        Self::new(StatusCode::OK)
     }
 
     pub fn created() -> Self {
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_status_code_display() {
-        assert_eq!(StatusCode::Ok.to_string(), "200 OK");
+        assert_eq!(StatusCode::OK.to_string(), "200 OK");
         assert_eq!(StatusCode::BadRequest.to_string(), "400 Bad Request");
         assert_eq!(
             StatusCode::InternalServerError.to_string(),
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn test_basic_response() {
         let response = Response::ok();
-        assert_eq!(response.status_code(), StatusCode::Ok);
+        assert_eq!(response.status_code(), StatusCode::OK);
         assert_eq!(response.body().is_empty(), true)
     }
 
@@ -155,7 +155,7 @@ mod tests {
         let body = Body::from_content_length(data, data.len()).unwrap();
         let response = Response::ok().with_body(body);
 
-        assert_eq!(response.status_code(), StatusCode::Ok);
+        assert_eq!(response.status_code(), StatusCode::OK);
         assert_eq!(response.body().as_str().unwrap(), "Hello, World!");
         assert_eq!(response.headers().get("Content-Length"), Some("13"));
     }

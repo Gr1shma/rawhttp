@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusCode {
-    Ok = 200,
+    OK = 200,
     Created = 201,
     Accepted = 202,
     NoContent = 204,
@@ -40,7 +40,7 @@ pub enum StatusCode {
 impl StatusCode {
     pub fn reason_parse(&self) -> &'static str {
         match self {
-            StatusCode::Ok => "OK",
+            StatusCode::OK => "OK",
             StatusCode::Created => "Created",
             StatusCode::Accepted => "Accepted",
             StatusCode::NoContent => "No Content",
