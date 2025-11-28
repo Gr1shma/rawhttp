@@ -33,6 +33,9 @@ pub enum ParseError {
 
     #[error("Body error: {0}")]
     Body(#[from] BodyError),
+
+    #[error("Invalid chunk size")]
+    InvalidChunkFormat,
 }
 
 pub struct Request {
@@ -132,6 +135,48 @@ impl TryFrom<&[u8]> for Request {
     }
 }
 
+fn read_chunked_body<R: BufRead>(reader: &mut R) -> Result<Vec<u8>, ParseError> {
+    let mut body = Vec::new();
+
+    loop {
+        let mut size_line = String::new();
+        reader.read_line(&mut size_line)?;
+
+        let size_str = size_line.trim();
+        if size_str.is_empty() {
+            continue;
+        }
+
+        let size_part = size_str.split(';').next().unwrap_or("");
+
+        let chunk_size =
+            usize::from_str_radix(size_part, 16).map_err(|_| ParseError::InvalidChunkFormat)?;
+
+        if chunk_size == 0 {
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line)?;
+                if line == "\r\n" || line == "\n" || line.is_empty() {
+                    break;
+                }
+            }
+            break;
+        }
+
+        let mut chunk = vec![0; chunk_size];
+        reader.read_exact(&mut chunk)?;
+        body.extend_from_slice(&chunk);
+
+        let mut crlf = String::new();
+        reader.read_line(&mut crlf)?;
+        if crlf != "\r\n" && crlf != "\n" {
+            return Err(ParseError::InvalidChunkFormat);
+        }
+    }
+
+    Ok(body)
+}
+
 pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, ParseError> {
     let mut reader = BufReader::new(reader);
     let mut headers_buf = Vec::new();
@@ -154,15 +199,24 @@ pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, 
     let headers_str =
         String::from_utf8(headers_buf).map_err(|e| ParseError::InvalidEncoding(e.utf8_error()))?;
 
-    let content_length = headers_str
+    let chunk_encoding = headers_str
         .lines()
-        .find(|line| line.to_lowercase().starts_with("content-length:"))
-        .and_then(|line| line.split(':').nth(1))
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .unwrap_or(0);
+        .any(|line| line.to_lowercase().contains("transfer-encoding: chunked"));
 
-    let mut body_buf = vec![0; content_length];
-    reader.read_exact(&mut body_buf)?;
+    let body_buf = if chunk_encoding {
+        read_chunked_body(&mut reader)?
+    } else {
+        let content_length = headers_str
+            .lines()
+            .find(|line| line.to_lowercase().starts_with("content-length:"))
+            .and_then(|line| line.split(':').nth(1))
+            .and_then(|value| value.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+
+        let mut body_buf = vec![0; content_length];
+        reader.read_exact(&mut body_buf)?;
+        body_buf
+    };
 
     Request::from_parts(&headers_str, body_buf)
 }
@@ -270,5 +324,59 @@ mod tests {
 
         assert_eq!(request.body().len(), body_size);
         assert_eq!(request.body_as_str().unwrap(), body);
+    }
+
+    #[test]
+    fn test_chunked_encoding_basic() {
+        let raw = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   5\r\nHello\r\n\
+                   6\r\n World\r\n\
+                   0\r\n\r\n";
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let request = request_from_reader(&mut cursor).unwrap();
+
+        assert_eq!(request.body_as_str().unwrap(), "Hello World");
+    }
+
+    #[test]
+    fn test_chunked_encoding_with_extensions() {
+        let raw = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   5;foo=bar\r\nHello\r\n\
+                   0\r\n\r\n";
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let request = request_from_reader(&mut cursor).unwrap();
+
+        assert_eq!(request.body_as_str().unwrap(), "Hello");
+    }
+
+    #[test]
+    fn test_chunked_encoding_empty() {
+        let raw = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   0\r\n\r\n";
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let request = request_from_reader(&mut cursor).unwrap();
+
+        assert!(request.body().is_empty());
+    }
+
+    #[test]
+    fn test_chunked_encoding_invalid_size() {
+        let raw = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   G\r\nHello\r\n\
+                   0\r\n\r\n";
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let result = request_from_reader(&mut cursor);
+
+        assert!(matches!(result, Err(ParseError::InvalidChunkFormat)));
+    }
+
+    #[test]
+    fn test_chunked_encoding_missing_crlf() {
+        let raw = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   5\r\nHello0\r\n\r\n"; // Missing CRLF after "Hello"
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let result = request_from_reader(&mut cursor);
+
+        assert!(result.is_err());
     }
 }
