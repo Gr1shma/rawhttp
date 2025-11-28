@@ -71,6 +71,9 @@ impl<H: Handler + 'static> Server<H> {
 }
 
 fn handle_connection(mut stream: TcpStream, handler: Arc<dyn Handler>) -> Result<()> {
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(5)))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_secs(5)))?;
+
     let response = match request_from_reader(&mut stream) {
         Ok(request) => {
             println!(

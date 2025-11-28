@@ -34,9 +34,14 @@ pub enum ParseError {
     #[error("Body error: {0}")]
     Body(#[from] BodyError),
 
+    #[error("Header too large")]
+    HeaderTooLarge,
+
     #[error("Invalid chunk size")]
     InvalidChunkFormat,
 }
+
+const MAX_HEADER_SIZE: usize = 8 * 1024; // 8KB
 
 pub struct Request {
     pub requestline: RequestLine,
@@ -184,6 +189,10 @@ pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, 
     loop {
         let mut line = String::new();
         let bytes_read = reader.read_line(&mut line)?;
+
+        if headers_buf.len() + bytes_read > MAX_HEADER_SIZE {
+            return Err(ParseError::HeaderTooLarge);
+        }
 
         if bytes_read == 0 {
             break; // EOF
@@ -388,5 +397,14 @@ mod tests {
         let result = request_from_reader(&mut cursor);
 
         assert!(result.is_err());
+    }
+    #[test]
+    fn test_header_too_large() {
+        let large_header = "X-Large: ".to_string() + &"a".repeat(8192);
+        let raw = format!("GET / HTTP/1.1\r\n{}\r\n\r\n", large_header);
+        let mut cursor = std::io::Cursor::new(raw.as_bytes());
+        let result = request_from_reader(&mut cursor);
+
+        assert!(matches!(result, Err(ParseError::HeaderTooLarge)));
     }
 }
