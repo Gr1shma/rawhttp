@@ -20,6 +20,13 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Run integration tests
+      run: |
+        cargo run &
+        SERVER_PID=$!
+        sleep 2
+        ./test_handlers.sh
+        kill $SERVER_PID
     - name: Check formatting
       run: cargo fmt -- --check
     - name: Clippy
