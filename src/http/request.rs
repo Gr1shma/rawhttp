@@ -199,9 +199,19 @@ pub fn request_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Request, 
     let headers_str =
         String::from_utf8(headers_buf).map_err(|e| ParseError::InvalidEncoding(e.utf8_error()))?;
 
-    let chunk_encoding = headers_str
+    let te_headers: Vec<&str> = headers_str
         .lines()
-        .any(|line| line.to_lowercase().contains("transfer-encoding: chunked"));
+        .filter(|line| line.to_lowercase().starts_with("transfer-encoding:"))
+        .collect();
+
+    if te_headers.len() > 1 {
+        return Err(ParseError::Header(HeaderError::InvalidHeaderValue));
+    }
+
+    let chunk_encoding = te_headers
+        .first()
+        .map(|line| line.to_lowercase().contains("chunked"))
+        .unwrap_or(false);
 
     let body_buf = if chunk_encoding {
         read_chunked_body(&mut reader)?
