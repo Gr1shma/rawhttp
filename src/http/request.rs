@@ -87,6 +87,15 @@ impl Request {
         self.body.as_str()
     }
 
+    pub fn validated_host(&self, allowed_hosts: &[&str]) -> Option<&str> {
+        let host = self.header("Host")?;
+        if allowed_hosts.contains(&host) {
+            Some(host)
+        } else {
+            None
+        }
+    }
+
     pub fn from_parts(header_section: &str, body: Vec<u8>) -> Result<Self, ParseError> {
         let lines: Vec<&str> = header_section.lines().collect();
         if lines.is_empty() {
@@ -406,5 +415,35 @@ mod tests {
         let result = request_from_reader(&mut cursor);
 
         assert!(matches!(result, Err(ParseError::HeaderTooLarge)));
+    }
+
+    #[test]
+    fn test_validated_host_allowed() {
+        let raw = "GET / HTTP/1.1\r\nHost: localhost:8080\r\n\r\n";
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        let allowed_hosts = &["localhost:8080", "grishmadhakal.com.np"];
+        assert_eq!(
+            request.validated_host(allowed_hosts),
+            Some("localhost:8080")
+        );
+    }
+
+    #[test]
+    fn test_validated_host_not_allowed() {
+        let raw = "GET / HTTP/1.1\r\nHost: evil.com\r\n\r\n";
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        let allowed_hosts = &["localhost:8080", "grishmadhakal.com.np"];
+        assert_eq!(request.validated_host(allowed_hosts), None);
+    }
+
+    #[test]
+    fn test_validated_host_missing() {
+        let raw = "GET / HTTP/1.1\r\n\r\n";
+        let request = Request::try_from(raw.as_bytes()).unwrap();
+
+        let allowed_hosts = &["localhost:8080", "grishmadhakal.com.np"];
+        assert_eq!(request.validated_host(allowed_hosts), None);
     }
 }

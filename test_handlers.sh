@@ -11,7 +11,7 @@ test() {
     local headers="$6"
 
     echo -n "$name... "
-    
+
     if [ -n "$data" ]; then
         status=$(curl -sw "\n%{http_code}" -X "$method" -d "$data" $headers "$URL$path" 2>/dev/null | tail -1)
     else
@@ -35,6 +35,8 @@ test "POST /echo" POST /echo 200 "Hello World"
 test "POST /echo (chunked)" POST /echo 200 "Hello World" "-H Transfer-Encoding:chunked"
 test "POST /invalid" POST /invalid 404
 test "PUT /status" PUT /status 405
+test "GET /valid-host (valid host)" GET /valid-host 200
+test "GET /valid-host (invalid host)" GET /valid-host 400 "" "-H Host: notvalidhost.com"
 
 echo -e "\nPassed: $PASS | Failed: $FAIL"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

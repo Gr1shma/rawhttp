@@ -91,6 +91,9 @@ impl Headers {
     }
 
     fn is_valid_header_value(s: &str) -> bool {
+        if s.contains('\r') || s.contains('\n') {
+            return false;
+        }
         s.chars()
             .all(|c| matches!(c, ' ' | '\t') || c.is_ascii_graphic() || !c.is_ascii())
     }
@@ -215,5 +218,19 @@ mod tests {
         headers.insert("Set-Cookie".to_string(), "user=john".to_string());
 
         assert_eq!(headers.get("Set-Cookie"), Some("session=abc,user=john"));
+    }
+
+    #[test]
+    fn test_crlf_injection_in_header_value() {
+        let line = "X-Custom: value\r\nInjected-Header: malicious";
+        let result = Headers::parse_header_line(line);
+        assert!(matches!(result, Err(HeaderError::InvalidHeaderValue)));
+    }
+
+    #[test]
+    fn test_newline_injection_in_header_value() {
+        let line = "X-Custom: value\nInjected-Header: malicious";
+        let result = Headers::parse_header_line(line);
+        assert!(matches!(result, Err(HeaderError::InvalidHeaderValue)));
     }
 }
