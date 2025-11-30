@@ -1,9 +1,10 @@
 # rawhttp
 
-A simple, lightweight HTTP server implementation in Rust, built from scratch to understand the fundamentals of TCP networking and HTTP protocol parsing.
+A lightweight HTTP/1.1 parser and server built in Rust from scratch, with a focus on security and understanding how web servers work.
 
 ## Table of Contents
 
+- [Features](#features)
 - [Build & Run](#build--run)
 - [Example Endpoints](#example-endpoints)
 - [Testing](#testing)
@@ -12,6 +13,21 @@ A simple, lightweight HTTP server implementation in Rust, built from scratch to 
 - [Process](#process)
 - [What I Have Learned](#what-i-have-learned)
 - [License](#license)
+
+## Features
+
+### HTTP Protocol
+- Full HTTP/1.1 support with chunked transfer encoding
+- Parses HTTP requests including headers, body, and query parameters
+- Clean error handling with helpful error messages
+
+### Performance
+- Handles multiple connections at the same time using threads
+
+### Security
+- Built-in security against request smuggling and DoS attacks
+- Header size limits and connection timeouts to prevent abuse
+- Host header validation to block malicious requests
 
 ## Build & Run
 
@@ -33,14 +49,11 @@ The server will start listening on `127.0.0.1:8080`.
 
 Once the server is running, you can test the following endpoints:
 
-- **Root**: `GET /`
-  - Returns: "Hello from rawhttp"
-- **Status**: `GET /status`
-  - Returns: "Server is running"
-- **Query Echo**: `GET /query?message=hello`
-  - Returns: "Message: hello"
-- **Echo Body**: `POST /echo` (with body)
-  - Returns: "Echo: [your body]"
+- `GET /` - Returns "Hello from rawhttp"
+- `GET /status` - Returns "Server is running"
+- `GET /query?message=hello` - Returns "Message: hello"
+- `POST /echo` - Echoes the request body
+- `GET /valid-host` - Validates Host header against whitelist
 
 ## Testing
 
@@ -81,11 +94,14 @@ The project is organized into modular components:
 
 ## What I Have Learned
 
--   **TCP Networking**: How to use `std::net::TcpListener` to accept connections and `TcpStream` to read/write data.
--   **HTTP Protocol**: Understanding the structure of HTTP requests (Method, Path, Version, Headers, Body) and how to parse them manually.
--   **Rust Ownership & Concurrency**: Managing ownership when passing streams to threads and sharing the handler using `Arc`.
--   **Traits**: Defining a `Handler` trait to decouple the server infrastructure from the application logic.
--   **Error Handling**: Using `anyhow` and `thiserror` for robust error management in Rust.
+-   How to use `std::net::TcpListener` to accept connections and `TcpStream` to read and write data.
+-   Understanding the structure of HTTP requests and how to parse them manually.
+-   Implementing chunked transfer encoding with proper validation.
+-   Preventing request smuggling attacks by detecting duplicate Transfer-Encoding headers.
+-   Protecting against DoS attacks using header size limits and connection timeouts.
+-   Managing ownership when passing streams to threads and sharing handlers using `Arc`.
+-   Defining a `Handler` trait to separate server infrastructure from application logic.
+-   Using `anyhow` and `thiserror` for error handling in Rust.
 
 ## License
 
