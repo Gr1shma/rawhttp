@@ -141,6 +141,8 @@ impl TryFrom<&[u8]> for Request {
 
         let (header_section, body_section) = if let Some(pos) = data_str.find("\r\n\r\n") {
             (&data_str[..pos], &data_str[pos + 4..])
+        } else if let Some(pos) = data_str.find("\n\n") {
+            (&data_str[..pos], &data_str[pos + 2..])
         } else {
             (data_str, "")
         };
